@@ -1,0 +1,123 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Lint with ruff
+      run: |
+        pip install ruff
+        ruff check src/
+
+    - name: Format check with black
+      run: |
+        pip install black
+        black --check src/
+
+    - name: Type check with mypy (optional)
+      continue-on-error: true
+      run: |
+        pip install mypy
+        mypy src/ --ignore-missing-imports
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v --tb=short
+      env:
+        # Use dummy credentials for testing
+        POLYGON_PRIVATE_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+        POLYGON_ADDRESS: "0x0000000000000000000000000000000000000001"
+        POLYMARKET_CHAIN_ID: "137"
+
+    - name: Run tests with coverage
+      run: |
+        pytest tests/ --cov=polymarket_mcp --cov-report=xml --cov-report=term
+      env:
+        POLYGON_PRIVATE_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+        POLYGON_ADDRESS: "0x0000000000000000000000000000000000000001"
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      if: matrix.python-version == '3.12'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  integration-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Test API connectivity
+      run: |
+        python -c "
+        import httpx
+        import asyncio
+
+        async def test():
+            async with httpx.AsyncClient() as client:
+                response = await client.get('https://gamma-api.polymarket.com/markets', params={'limit': 1})
+                assert response.status_code == 200
+                print('✅ API connectivity test passed')
+
+        asyncio.run(test())
+        "
+
+    - name: Verify tool count
+      run: |
+        python -c "
+        import sys
+        sys.path.insert(0, 'src')
+        from polymarket_mcp.tools import market_discovery, market_analysis, trading, portfolio_integration, realtime
+
+        tools = []
+        tools.extend(market_discovery.get_tools())
+        tools.extend(market_analysis.get_tools())
+        tools.extend(trading.get_tool_definitions())
+        tools.extend(portfolio_integration.get_portfolio_tool_definitions())
+        tools.extend(realtime.get_tools())
+
+        assert len(tools) == 45, f'Expected 45 tools, got {len(tools)}'
+        print(f'✅ Verified 45 tools available')
+        "
