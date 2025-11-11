@@ -44,8 +44,10 @@ async def _fetch_gamma_markets(
     """
     rate_limiter = get_rate_limiter()
 
-    async with rate_limiter.acquire(EndpointCategory.GAMMA_API):
-        try:
+    await rate_limiter.acquire(EndpointCategory.GAMMA_API)
+
+
+    try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 url = f"{GAMMA_API_URL}{endpoint}"
 

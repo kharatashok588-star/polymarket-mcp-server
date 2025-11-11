@@ -86,8 +86,10 @@ async def _fetch_gamma_api(endpoint: str, params: Optional[Dict] = None) -> Any:
     """Fetch from Gamma API with rate limiting"""
     rate_limiter = get_rate_limiter()
 
-    async with rate_limiter.acquire(EndpointCategory.GAMMA_API):
-        try:
+    await rate_limiter.acquire(EndpointCategory.GAMMA_API)
+
+
+    try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 url = f"{GAMMA_API_URL}{endpoint}"
                 response = await client.get(url, params=params or {})
@@ -102,8 +104,10 @@ async def _fetch_clob_api(endpoint: str, params: Optional[Dict] = None) -> Any:
     """Fetch from CLOB API with rate limiting"""
     rate_limiter = get_rate_limiter()
 
-    async with rate_limiter.acquire(EndpointCategory.MARKET_DATA):
-        try:
+    await rate_limiter.acquire(EndpointCategory.MARKET_DATA)
+
+
+    try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 url = f"{CLOB_API_URL}{endpoint}"
                 response = await client.get(url, params=params or {})
