@@ -1,0 +1,120 @@
+# =============================================================================
+# POLYMARKET MCP SERVER - Docker Compose for Coolify
+# =============================================================================
+#
+# Ce fichier est optimisé pour le déploiement sur Coolify et l'intégration
+# avec n8n via les nodes MCP natifs (v1.88+)
+#
+# Deployment steps on Coolify:
+# 1. Create a new project
+# 2. Add this as a Docker Compose deployment
+# 3. Configure the environment variables
+# 4. Deploy!
+#
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # POLYMARKET MCP SERVER WITH MCPO PROXY
+  # ---------------------------------------------------------------------------
+  polymarket-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.coolify
+    container_name: polymarket-mcp
+
+    # Environment variables (configure in Coolify UI)
+    environment:
+      # =====================================================================
+      # MODE: Set to 'true' for read-only access, 'false' for trading
+      # =====================================================================
+      - DEMO_MODE=${DEMO_MODE:-true}
+
+      # =====================================================================
+      # WALLET CREDENTIALS (required if DEMO_MODE=false)
+      # =====================================================================
+      - POLYGON_PRIVATE_KEY=${POLYGON_PRIVATE_KEY:-}
+      - POLYGON_ADDRESS=${POLYGON_ADDRESS:-}
+
+      # =====================================================================
+      # OPTIONAL: Polymarket API credentials (for enhanced rate limits)
+      # =====================================================================
+      - POLYMARKET_API_KEY=${POLYMARKET_API_KEY:-}
+      - POLYMARKET_PASSPHRASE=${POLYMARKET_PASSPHRASE:-}
+
+      # =====================================================================
+      # SAFETY LIMITS (adjust to your risk tolerance)
+      # =====================================================================
+      - MAX_ORDER_SIZE_USD=${MAX_ORDER_SIZE_USD:-100}
+      - MAX_TOTAL_EXPOSURE_USD=${MAX_TOTAL_EXPOSURE_USD:-1000}
+      - MAX_POSITION_SIZE_PER_MARKET=${MAX_POSITION_SIZE_PER_MARKET:-500}
+      - REQUIRE_CONFIRMATION_ABOVE_USD=${REQUIRE_CONFIRMATION_ABOVE_USD:-50}
+
+      # =====================================================================
+      # SYSTEM
+      # =====================================================================
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - POLYMARKET_CHAIN_ID=${POLYMARKET_CHAIN_ID:-137}
+
+      # MCPO server port (internal)
+      - PORT=8000
+
+    # Expose HTTP port for n8n integration
+    ports:
+      - "8000:8000"
+
+    # Persistent storage
+    volumes:
+      - polymarket-logs:/app/logs
+      - polymarket-data:/app/data
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    # Resource limits (adjust based on your server)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    # Network (Coolify will handle this, but good for local testing)
+    networks:
+      - coolify
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  polymarket-logs:
+    driver: local
+  polymarket-data:
+    driver: local
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
+networks:
+  coolify:
+    external: true
+    name: coolify

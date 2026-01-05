@@ -1,0 +1,85 @@
+# =============================================================================
+# POLYMARKET MCP SERVER - Optimized for Coolify + n8n 2.0+
+# =============================================================================
+# 
+# Updated: January 2026
+# Compatible with:
+#   - n8n 2.0+ (native MCP support)
+#   - MCPO 0.0.18+ (Streamable HTTP, OAuth 2.0)
+#   - MCP Protocol 2025-11-25 specification
+#
+# This Dockerfile exposes the MCP server via Streamable HTTP for integration
+# with n8n's native MCP Client Tool and Instance-Level MCP Access.
+# =============================================================================
+
+# Stage 1: Builder
+FROM python:3.12-slim as builder
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project files
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+
+# Build wheel
+RUN pip install --no-cache-dir build && \
+    python -m build --wheel
+
+# Stage 2: Runtime with MCPO (v0.0.18+)
+FROM python:3.12-slim
+
+# Create non-root user
+RUN groupadd -r polymarket && \
+    useradd -r -g polymarket -u 1000 polymarket && \
+    mkdir -p /app/logs /app/data && \
+    chown -R polymarket:polymarket /app
+
+WORKDIR /app
+
+# Install the wheel + MCPO 0.0.18+ for Streamable HTTP support
+# MCPO 0.0.18 features: OAuth 2.0, Streamable HTTP, session management
+COPY --from=builder /build/dist/*.whl .
+RUN pip install --no-cache-dir *.whl "mcpo>=0.0.18" && \
+    rm -f *.whl && \
+    pip cache purge
+
+# Copy source code
+COPY --chown=polymarket:polymarket src/ ./src/
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    LOG_LEVEL=INFO \
+    PORT=8000 \
+    # Enable Streamable HTTP (new in MCP 2025-11 spec)
+    MCP_TRANSPORT=streamable-http \
+    # OAuth 2.0 support (if needed)
+    MCPO_OAUTH_ENABLED=false
+
+# Expose HTTP port for MCPO proxy (Streamable HTTP)
+EXPOSE 8000
+
+# Health check via HTTP - compatible with MCPO 0.0.18+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -sf http://localhost:8000/health || python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/', timeout=5)" || exit 1
+
+# Switch to non-root user
+USER polymarket
+
+# Entry point: MCPO 0.0.18+ with Streamable HTTP transport
+# Compatible with n8n 2.0+ MCP Client Tool and Instance-Level MCP
+CMD ["mcpo", "--port", "8000", "--host", "0.0.0.0", "--", "python", "-m", "polymarket_mcp.server"]
+
+# Labels
+LABEL org.opencontainers.image.title="Polymarket MCP Server (Coolify/n8n 2.0+)" \
+    org.opencontainers.image.description="MCP server for Polymarket with Streamable HTTP for n8n 2.0+ integration" \
+    org.opencontainers.image.version="0.2.0" \
+    org.opencontainers.image.authors="Polymarket MCP Team" \
+    org.opencontainers.image.created="2026-01-05" \
+    mcp.transport="streamable-http" \
+    mcp.protocol.version="2025-11-25"
