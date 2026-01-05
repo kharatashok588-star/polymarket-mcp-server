@@ -67,8 +67,9 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8000
 
 # Health check via HTTP - compatible with MCPO 0.0.18+
+# Note: MCPO exposes /docs endpoint, / returns 404
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
-    CMD curl -s http://localhost:8000/ > /dev/null || exit 1
+    CMD curl -sf http://localhost:8000/docs -o /dev/null || exit 1
 
 # Switch to non-root user
 USER polymarket

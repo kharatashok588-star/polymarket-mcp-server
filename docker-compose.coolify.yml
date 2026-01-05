@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.coolify
-    container_name: polymarket-mcp
+    # Note: container_name removed - Coolify generates unique names
 
     # Environment variables (configure in Coolify UI)
     environment:
@@ -61,9 +61,10 @@ services:
       # MCPO server port (internal)
       - PORT=8000
 
-    # Expose HTTP port for n8n integration
-    ports:
-      - "8000:8000"
+    # NOTE: Do not expose ports directly - Coolify handles this via reverse proxy
+    # Configure the port in Coolify UI instead
+    # ports:
+    #   - "8000:8000"
 
     # Persistent storage
     volumes:
@@ -73,13 +74,13 @@ services:
     # Restart policy
     restart: unless-stopped
 
-    # Health check
+    # Health check - MCPO exposes /docs endpoint
     healthcheck:
-      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)" ]
+      test: [ "CMD", "curl", "-sf", "http://localhost:8000/docs", "-o", "/dev/null" ]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 15s
+      retries: 5
+      start_period: 30s
 
     # Resource limits (adjust based on your server)
     deploy:
@@ -116,5 +117,6 @@ volumes:
 # =============================================================================
 networks:
   coolify:
+    # IMPORTANT: Coolify manages this network - must be external: true
     external: true
     name: coolify
