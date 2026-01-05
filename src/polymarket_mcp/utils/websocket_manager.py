@@ -127,7 +127,7 @@ class WebSocketManager:
     """
 
     # WebSocket endpoints
-    CLOB_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/"
+    CLOB_WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market"
     REALTIME_WS_URL = "wss://ws-live-data.polymarket.com"
 
     # Reconnect settings
