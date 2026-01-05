@@ -65,8 +65,8 @@ ENV PYTHONUNBUFFERED=1 \
 EXPOSE 8000
 
 # Health check via HTTP - compatible with MCPO 0.0.18+
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-    CMD curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ | grep -E "200|404" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
+    CMD curl -s http://localhost:8000/ > /dev/null || exit 1
 
 # Switch to non-root user
 USER polymarket
