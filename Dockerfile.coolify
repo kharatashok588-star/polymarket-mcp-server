@@ -44,8 +44,10 @@ WORKDIR /app
 # Install the wheel + MCPO 0.0.18+ for Streamable HTTP support
 # MCPO 0.0.18 features: OAuth 2.0, Streamable HTTP, session management
 COPY --from=builder /build/dist/*.whl .
-RUN pip install --no-cache-dir *.whl "mcpo>=0.0.18" && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    pip install --no-cache-dir *.whl "mcpo>=0.0.18" && \
     rm -f *.whl && \
+    rm -rf /var/lib/apt/lists/* && \
     pip cache purge
 
 # Copy source code
