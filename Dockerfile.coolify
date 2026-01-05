@@ -57,26 +57,26 @@ COPY --chown=polymarket:polymarket src/ ./src/
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     LOG_LEVEL=INFO \
-    PORT=8000 \
+    PORT=8765 \
     # Enable Streamable HTTP (new in MCP 2025-11 spec)
     MCP_TRANSPORT=streamable-http \
     # OAuth 2.0 support (if needed)
     MCPO_OAUTH_ENABLED=false
 
 # Expose HTTP port for MCPO proxy (Streamable HTTP)
-EXPOSE 8000
+EXPOSE 8765
 
 # Health check via HTTP - compatible with MCPO 0.0.18+
 # Note: MCPO exposes /docs endpoint, / returns 404
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
-    CMD curl -sf http://localhost:8000/docs -o /dev/null || exit 1
+    CMD curl -sf http://localhost:8765/docs -o /dev/null || exit 1
 
 # Switch to non-root user
 USER polymarket
 
 # Entry point: MCPO 0.0.18+ with Streamable HTTP transport
 # Compatible with n8n 2.0+ MCP Client Tool and Instance-Level MCP
-CMD ["mcpo", "--port", "8000", "--host", "0.0.0.0", "--", "python", "-m", "polymarket_mcp.server"]
+CMD ["mcpo", "--port", "8765", "--host", "0.0.0.0", "--", "python", "-m", "polymarket_mcp.server"]
 
 # Labels
 LABEL org.opencontainers.image.title="Polymarket MCP Server (Coolify/n8n 2.0+)" \

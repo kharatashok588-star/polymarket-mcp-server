@@ -59,12 +59,11 @@ services:
       - POLYMARKET_CHAIN_ID=${POLYMARKET_CHAIN_ID:-137}
 
       # MCPO server port (internal)
-      - PORT=8000
+      - PORT=8765
 
-    # NOTE: Do not expose ports directly - Coolify handles this via reverse proxy
-    # Configure the port in Coolify UI instead
-    # ports:
-    #   - "8000:8000"
+    # Expose HTTP port - using 8765 to avoid conflicts
+    ports:
+      - "8765:8765"
 
     # Persistent storage
     volumes:
@@ -76,7 +75,7 @@ services:
 
     # Health check - MCPO exposes /docs endpoint
     healthcheck:
-      test: [ "CMD", "curl", "-sf", "http://localhost:8000/docs", "-o", "/dev/null" ]
+      test: [ "CMD", "curl", "-sf", "http://localhost:8765/docs", "-o", "/dev/null" ]
       interval: 30s
       timeout: 10s
       retries: 5
