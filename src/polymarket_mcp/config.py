@@ -121,55 +121,63 @@ class PolymarketConfig(BaseSettings):
         description="Conditional Token contract address"
     )
 
-    @field_validator("POLYGON_PRIVATE_KEY")
+    @field_validator("POLYGON_PRIVATE_KEY", mode="before")
     @classmethod
-    def validate_private_key(cls, v: str, info) -> str:
-        """Validate private key format (skipped in DEMO_MODE)"""
-        # Get DEMO_MODE from the data being validated
-        demo_mode = info.data.get('DEMO_MODE', False)
+    def validate_private_key(cls, v: str) -> str:
+        """Pre-validate private key format - just clean up the value"""
+        if v is None:
+            return ""
+        # Remove 0x prefix if present
+        if isinstance(v, str) and v.startswith("0x"):
+            v = v[2:]
+        return v
 
-        # In DEMO mode, use a fixed demo private key
-        if demo_mode:
-            return "0000000000000000000000000000000000000000000000000000000000000001"
+    @field_validator("POLYGON_ADDRESS", mode="before")
+    @classmethod
+    def validate_address(cls, v: str) -> str:
+        """Pre-validate address format - just clean up the value"""
+        if v is None:
+            return ""
+        return v
+
+    def model_post_init(self, __context) -> None:
+        """Validate credentials after all fields are loaded (including DEMO_MODE)"""
+        # In DEMO mode, set placeholder values
+        if self.DEMO_MODE:
+            # Use object.__setattr__ to bypass frozen model if needed
+            if not self.POLYGON_PRIVATE_KEY or self.POLYGON_PRIVATE_KEY == "":
+                object.__setattr__(self, 'POLYGON_PRIVATE_KEY', "0000000000000000000000000000000000000000000000000000000000000001")
+            if not self.POLYGON_ADDRESS or self.POLYGON_ADDRESS == "":
+                object.__setattr__(self, 'POLYGON_ADDRESS', "0x0000000000000000000000000000000000000001")
+            return
 
         # Normal validation for non-demo mode
-        if not v:
+        if not self.POLYGON_PRIVATE_KEY:
             raise ValueError(
                 "POLYGON_PRIVATE_KEY is required (or set DEMO_MODE=true for read-only access)"
             )
-        # Remove 0x prefix if present
-        if v.startswith("0x"):
-            v = v[2:]
-        # Check if valid hex
-        if len(v) != 64:
+        
+        # Validate private key format
+        pk = self.POLYGON_PRIVATE_KEY
+        if len(pk) != 64:
             raise ValueError("POLYGON_PRIVATE_KEY must be 64 hex characters")
         try:
-            int(v, 16)
+            int(pk, 16)
         except ValueError:
             raise ValueError("POLYGON_PRIVATE_KEY must be valid hex")
-        return v
 
-    @field_validator("POLYGON_ADDRESS")
-    @classmethod
-    def validate_address(cls, v: str, info) -> str:
-        """Validate Polygon address format (skipped in DEMO_MODE)"""
-        # Get DEMO_MODE from the data being validated
-        demo_mode = info.data.get('DEMO_MODE', False)
-
-        # In DEMO mode, use a fixed demo address
-        if demo_mode:
-            return "0x0000000000000000000000000000000000000001"
-
-        # Normal validation for non-demo mode
-        if not v:
+        # Validate address
+        if not self.POLYGON_ADDRESS:
             raise ValueError(
                 "POLYGON_ADDRESS is required (or set DEMO_MODE=true for read-only access)"
             )
-        if not v.startswith("0x"):
+        if not self.POLYGON_ADDRESS.startswith("0x"):
             raise ValueError("POLYGON_ADDRESS must start with 0x")
-        if len(v) != 42:
+        if len(self.POLYGON_ADDRESS) != 42:
             raise ValueError("POLYGON_ADDRESS must be 42 characters")
-        return v.lower()
+        
+        # Normalize address to lowercase
+        object.__setattr__(self, 'POLYGON_ADDRESS', self.POLYGON_ADDRESS.lower())
 
     @field_validator("MAX_SPREAD_TOLERANCE")
     @classmethod
